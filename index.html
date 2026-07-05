@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Alumni Query Assistant</title>
+
+<style>
+    body {
+        font-family: 'Segoe UI', sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #1e1e2f, #2b5876, #4e4376);
+        min-height: 100vh;
+        color: #333;
+    }
+
+    .container {
+        max-width: 900px;
+        margin: auto;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 30px;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        backdrop-filter: blur(10px);
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+        margin-bottom: 25px;
+    }
+
+    h2 {
+        color: #4e4376;
+        letter-spacing: 1px;
+    }
+
+    .card {
+        border: none;
+        padding: 25px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        background: #fdfdfd;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+        transition: transform 0.2s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+    }
+
+    input, textarea {
+        width: 100%;
+        padding: 12px;
+        margin: 8px 0;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-sizing: border-box;
+        outline: none;
+        transition: 0.3s;
+    }
+
+    input:focus, textarea:focus {
+        border-color: #6a5acd;
+        box-shadow: 0 0 5px rgba(106,90,205,0.3);
+    }
+
+    button {
+        background: linear-gradient(135deg, #6a5acd, #00c6ff);
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: 0.3s;
+    }
+
+    button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+
+    #adminToggle {
+        background: linear-gradient(135deg, #ff7e5f, #feb47b);
+    }
+
+    .btn-del {
+        background: linear-gradient(135deg, #ff416c, #ff4b2b);
+        padding: 6px 12px;
+        font-size: 12px;
+        border-radius: 6px;
+    }
+
+    .btn-del:hover {
+        background: linear-gradient(135deg, #e60023, #ff0000);
+    }
+
+    .stats {
+        background: linear-gradient(135deg, #00c6ff, #0072ff);
+        color: white;
+        padding: 12px 18px;
+        border-radius: 8px;
+        display: inline-block;
+        margin-bottom: 15px;
+        font-weight: bold;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    th {
+        background: #4e4376;
+        color: white;
+    }
+
+    th, td {
+        text-align: left;
+        padding: 12px;
+    }
+
+    tr:nth-child(even) {
+        background: #f2f2f2;
+    }
+
+    tr:hover {
+        background: #e6e6ff;
+        transition: 0.2s;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    #filter {
+        border-radius: 8px;
+        border: 1px solid #ccc;
+    }
+
+    #loginPage .card {
+        background: linear-gradient(135deg, #fdfbfb, #ebedee);
+    }
+
+    p {
+        font-size: 14px;
+    }
+
+</style>
+
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>🎓 Alumni Query Assistant</h2>
+        <button id="adminToggle" onclick="showLogin()">Admin Login</button>
+    </div>
+
+    <!-- Student Interface -->
+    <div id="studentPage">
+        <div class="card">
+            <h3>Ask Career Question</h3>
+            <input type="text" id="stu_id" placeholder="Student ID">
+            <input type="text" id="stu_name" placeholder="Full Name">
+            <input type="text" id="stu_dept" placeholder="Department (e.g. CSE)">
+            <textarea id="stu_query" rows="4" placeholder="Your question..."></textarea>
+            <button onclick="submitQuery()" style="width:100%">Submit Query</button>
+        </div>
+    </div>
+
+    <!-- Admin Login -->
+    <div id="loginPage" class="hidden">
+        <div class="card" style="max-width:350px; margin:auto; text-align:center;">
+            <h3>Admin Login</h3>
+            <input type="text" id="user" placeholder="Username">
+            <input type="password" id="pass" placeholder="Password">
+            <button onclick="doLogin()" style="width:100%">Login</button>
+            <p onclick="location.reload()" style="cursor:pointer; color:blue; margin-top:10px;">Back</p>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminPage" class="hidden">
+        <div class="stats">Total Queries: <span id="count">0</span></div>
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+            <input id="filter" placeholder="Filter by Dept..." onkeyup="loadAdminData()" style="margin:0">
+        </div>
+        <table>
+            <thead><tr><th>Student Details</th><th>Question</th><th>Action</th></tr></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+        <button onclick="location.reload()" style="background:#343a40; margin-top:20px;">Logout</button>
+    </div>
+</div>
+
+<script>
+    const API = "http://127.0.0.1:8000";
+
+    async function submitQuery() {
+        const payload = {
+            student_id: document.getElementById('stu_id').value,
+            name: document.getElementById('stu_name').value,
+            dept: document.getElementById('stu_dept').value,
+            query: document.getElementById('stu_query').value
+        };
+
+        if(!payload.student_id || !payload.query) {
+            alert("Student ID and Question are required!");
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API}/query/add`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(payload)
+            });
+            if(res.ok) {
+                alert("Submitted!");
+                location.reload();
+            } else {
+                alert("Submission failed.");
+            }
+        } catch (e) {
+            alert("Server connection failed.");
+        }
+    }
+
+    function showLogin() {
+        document.getElementById('studentPage').classList.add('hidden');
+        document.getElementById('adminToggle').classList.add('hidden');
+        document.getElementById('loginPage').classList.remove('hidden');
+    }
+
+    function doLogin() {
+        const u = document.getElementById('user').value;
+        const p = document.getElementById('pass').value;
+        if(u === "admin" && p === "12345") {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('adminPage').classList.remove('hidden');
+            loadAdminData();
+        } else alert("Invalid credentials");
+    }
+
+    async function loadAdminData() {
+        const cRes = await fetch(`${API}/queries/count`);
+        const cData = await cRes.json();
+        document.getElementById('count').innerText = cData.total;
+
+        const fVal = document.getElementById('filter').value;
+        const dRes = await fetch(`${API}/queries/all?dept=${fVal}`);
+        const queries = await dRes.json();
+        
+        let rows = "";
+        queries.forEach(q => {
+            rows += `<tr>
+                <td><b>${q.name}</b><br><small>ID: ${q.sid} | Dept: ${q.dept}</small></td>
+                <td>${q.query}</td>
+                <td><button class="btn-del" onclick="deleteQ(${q.id})">Delete</button></td>
+            </tr>`;
+        });
+        document.getElementById('tableBody').innerHTML = rows;
+    }
+
+    async function deleteQ(id) {
+        if(confirm("Delete this entry?")) {
+            await fetch(`${API}/query/delete/${id}`, {method: "DELETE"});
+            loadAdminData();
+        }
+    }
+</script>
+
+</body>
+</html>
